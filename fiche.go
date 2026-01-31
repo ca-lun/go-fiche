@@ -6,18 +6,16 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
-	"github.com/pilu/go-base62"
 	"github.com/spf13/viper"
 )
 
 func ficheInit() {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", viper.Get("port")))
 	if err != nil {
-		// handle error
 		log.Fatalf("Could not bind to port: %d!", viper.Get("port"))
-		os.Exit(-1)
 	}
 	log.Printf("Server started listening on port: %d.", viper.Get("port"))
 	for {
@@ -42,14 +40,14 @@ func fiche(conn net.Conn) {
 	log.Printf("Incoming connection from: %s (%s).\n", remoteHost, conn.RemoteAddr().String())
 	conn.SetReadDeadline(time.Now().Add(time.Second * 5))
 
-	slug := base62.Encode(int(time.Now().UnixNano()))
+	slug := strconv.FormatInt(time.Now().UnixNano(), 36)
 	slugFullpath := fmt.Sprintf("%s/%s", viper.GetString("output"), slug)
 	log.Printf("Writing file to %s", slugFullpath)
 
 	file, err := os.Create(slugFullpath)
 	if err != nil {
-		conn.Write([]byte(fmt.Sprintf("%s", "Internal server error - Please try again later...\n\n")))
-		log.Fatalf("Unable to create slug file: %s", slugFullpath)
+		conn.Write([]byte("Internal server error - Please try again later...\n\n"))
+		log.Printf("Unable to create slug file: %s", slugFullpath)
 		return
 	}
 

@@ -18,7 +18,6 @@ func main() {
 		go serveHTTP()
 	}
 
-	for {
-		time.Sleep(time.Minute)
-	}
+	// Block forever
+	select {}
 }

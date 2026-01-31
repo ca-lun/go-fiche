@@ -56,9 +56,7 @@ func init() {
 		log.Printf("attempting to create %s\n", viper.GetString("output"))
 		err = os.Mkdir(viper.GetString("output"), os.ModeDir)
 		if err != nil {
-			log.Printf("Unable to create directory %s\n", viper.GetString("output"))
-			log.Fatalf("System error: %s\n", err)
-			os.Exit(1)
+			log.Fatalf("Unable to create directory %s: %s", viper.GetString("output"), err)
 		}
 	}
 }
