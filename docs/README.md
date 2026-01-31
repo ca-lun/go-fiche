@@ -3,7 +3,14 @@
 [![Build](https://github.com/ca-lun/go-fiche/actions/workflows/release.yml/badge.svg)](https://github.com/ca-lun/go-fiche/actions)
 [![License](https://img.shields.io/github/license/ca-lun/go-fiche.svg)](LICENSE)
 
-命令行 Pastebin 服务，用于分享终端输出。
+命令行 Pastebin 服务，用于分享终端输出。支持语法高亮。
+
+## 功能特性
+
+- 📝 通过 `nc` 命令快速上传文本
+- 🎨 自动语法高亮（基于 highlight.js）
+- 📋 一键复制按钮
+- 🔗 Raw 原文查看
 
 ## 安装
 
@@ -21,10 +28,10 @@ go build -o go-fiche .
 
 ## 使用方法
 
-### 服务端
+### 服务端启动
 
 ```bash
-./go-fiche -d paste.example.com -p 9999 -o ./code -H -P 9989
+./go-fiche -d paste.example.com -p 9999 -o ./code -S -H -P 9989
 ```
 
 ### 参数说明
@@ -35,7 +42,7 @@ go build -o go-fiche .
 | `-p` | TCP 监听端口 | `9999` |
 | `-o` | 存储目录 | `./code` |
 | `-S` | 启用 HTTPS 前缀 | `false` |
-| `-H` | 启用内置 HTTP 服务 | `false` |
+| `-H` | 启用内置 HTTP 服务（语法高亮） | `false` |
 | `-P` | HTTP 服务端口 | `9989` |
 | `-B` | 缓冲区大小 (bytes) | `32768` |
 | `-l` | 日志文件路径 | 无 |
@@ -53,72 +60,45 @@ cat file.txt | nc paste.example.com 9999
 xclip -o | nc paste.example.com 9999
 ```
 
+### 访问方式
+
+| URL | 说明 |
+|-----|------|
+| `https://paste.example.com/xxxxx` | 带语法高亮的页面 |
+| `https://paste.example.com/raw/xxxxx` | 原始纯文本 |
+
 ## Nginx 配置示例
 
-### 基础反向代理
+使用反向代理模式，将请求转发到 go-fiche 的 HTTP 服务：
 
 ```nginx
 server {
     listen 80;
+    listen [::]:80;
     server_name paste.example.com;
-    return 301 https://$server_name$request_uri;
+    return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
+    listen [::]:443 ssl;
     http2 on;
     server_name paste.example.com;
 
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
+    ssl_certificate     /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
 
-    # 静态文件服务
     location / {
-        root /path/to/code;
-        default_type text/plain;
-        charset utf-8;
-        
-        # 禁止目录列表
-        autoindex off;
-        
-        # 缓存设置
-        expires 1d;
-        add_header Cache-Control "public, immutable";
+        proxy_pass http://127.0.0.1:9989;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-### 带语法高亮（可选）
-
-如果需要语法高亮，可以使用 [highlight.js](https://highlightjs.org/) 或其他方案。
-
-```nginx
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name paste.example.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    root /path/to/code;
-
-    location / {
-        default_type text/plain;
-        charset utf-8;
-        autoindex off;
-    }
-
-    # 可选：添加 raw 路径返回纯文本
-    location /raw/ {
-        alias /path/to/code/;
-        default_type text/plain;
-        charset utf-8;
-    }
-}
-```
-
-### Systemd 服务
+## Systemd 服务
 
 创建 `/etc/systemd/system/go-fiche.service`：
 
@@ -129,14 +109,17 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-ExecStart=/usr/local/bin/go-fiche -d paste.example.com -p 9999 -o /var/www/paste -S
+# 注意：监听 1024 以下端口需要 root 权限，不要设置 User
+# User=www-data
+ExecStart=/usr/local/bin/go-fiche -d paste.example.com -p 9999 -o /var/www/paste -S -H -P 9989
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+> **注意**：如果使用 1024 以下的端口，需要以 root 运行或使用 `CAP_NET_BIND_SERVICE` 能力。
 
 启动服务：
 

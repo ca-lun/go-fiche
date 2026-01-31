@@ -3,13 +3,11 @@ module github.com/ca-lun/go-fiche
 go 1.24.4
 
 require (
-	github.com/gorilla/handlers v1.5.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 )
 
 require (
-	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
