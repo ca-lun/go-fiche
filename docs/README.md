@@ -1,144 +1,149 @@
-## GoFiche! ![Build Status](https://travis-ci.org/Neo-Desktop/go-fiche.svg?branch=master "Build Status") [![GitHub issues](https://img.shields.io/github/issues/Neo-Desktop/go-fiche.svg)](https://github.com/Neo-Desktop/go-fiche/issues) [![GitHub license](https://img.shields.io/github/license/Neo-Desktop/go-fiche.svg)](https://github.com/Neo-Desktop/go-fiche/blob/master/LICENSE)
-![Logo](https://neo-desktop.github.io/go-fiche/logo.png)
+# Go-Fiche
 
-### A Go fork of [Fiche](https://github.com/solusipse/fiche "fiche")
+[![Build](https://github.com/ca-lun/go-fiche/actions/workflows/release.yml/badge.svg)](https://github.com/ca-lun/go-fiche/actions)
+[![License](https://img.shields.io/github/license/ca-lun/go-fiche.svg)](LICENSE)
 
-Command line pastebin for sharing terminal output.
+命令行 Pastebin 服务，用于分享终端输出。
 
------
+## 安装
 
-# Server-side usage
+### 从 Release 下载
 
-## Installation From Source
+前往 [Releases](https://github.com/ca-lun/go-fiche/releases) 下载对应平台的二进制文件。
 
-1. Clone:
+### 从源码编译
 
-    ```
-    git clone https://github.com/Neo-Desktop/go-fiche.git
-    ```
-
-2. Build:
-
-    ```
-	go get github.com/ahmetb/govvv
-    govvv build
-    ```
-    
-3. Install:
-
-    ```
-    cp go-fiche /usr/local/bin
-    ```
-
--------------------------------------------------------------------------------
-
-## Usage
-
-```
-Usage of go-fiche:
-  -B, --buffer int        This parameter defines size of the buffer used for getting data from the user. Maximum size (in bytes) of all input files is defined by this value. (default 32768)
-  -d, --domain string     This will be used as a prefix for an output received by the client. Value will be prepended with http[s]. (default "localhost")
-  -h, --help              Prints this help message
-  -S, --https             If set, Go-Fiche returns url with https prefix instead of http.
-  -l, --log string        Log file. This file has to be user-writable.
-  -o, --output string     Relative or absolute path to the directory where you want to store user-posted pastes. (default "./code")
-  -p, --port int          Port in which the service should listen on. (default 9999)
-
+```bash
+git clone https://github.com/ca-lun/go-fiche.git
+cd go-fiche
+go build -o go-fiche .
 ```
 
-These are command line arguments. You don't have to provide any of them to run the application. Default settings will be used in such case. See section below for more info.
+## 使用方法
 
-### Settings
+### 服务端
 
--------------------------------------------------------------------------------
-
-#### Output directory `-o`
-
-Relative or absolute path to the directory where you want to store user-posted pastes.
-
-```
-go-fiche -o ./code
+```bash
+./go-fiche -d paste.example.com -p 9999 -o ./code -H -P 9989
 ```
 
-```
-go-fiche -o /home/www/code/
-```
+### 参数说明
 
-__Default value:__ `./code`
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `-d` | 域名，用于返回 URL | `localhost` |
+| `-p` | TCP 监听端口 | `9999` |
+| `-o` | 存储目录 | `./code` |
+| `-S` | 启用 HTTPS 前缀 | `false` |
+| `-H` | 启用内置 HTTP 服务 | `false` |
+| `-P` | HTTP 服务端口 | `9989` |
+| `-B` | 缓冲区大小 (bytes) | `32768` |
+| `-l` | 日志文件路径 | 无 |
 
--------------------------------------------------------------------------------
+### 客户端使用
 
-#### Domain `-d`
+```bash
+# 上传命令输出
+echo "Hello World" | nc paste.example.com 9999
 
-This will be used as a prefix for an output received by the client.
-Value will be prepended with `http`.
+# 上传文件
+cat file.txt | nc paste.example.com 9999
 
-```
-go-fiche -d domain.com
-```
-
-```
-go-fiche -d subdomain.domain.com
-```
-
-```
-go-fiche -d subdomain.domain.com/some_directory
-```
-
-__Default value:__ `localhost`
-
--------------------------------------------------------------------------------
-
-#### Slug size `-s`
-
-This will force slugs to be of required length:
-
-```
-go-fiche -s 6
+# 上传剪贴板
+xclip -o | nc paste.example.com 9999
 ```
 
-__Output url with default value__: `http://localhost/xxxx`,
-where x is a randomized character
+## Nginx 配置示例
 
-__Output url with example value 6__: `http://localhost/xxxx`,
-where is a randomized character
+### 基础反向代理
 
-__Default value:__ 4
+```nginx
+server {
+    listen 80;
+    server_name paste.example.com;
+    return 301 https://$server_name$request_uri;
+}
 
--------------------------------------------------------------------------------
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name paste.example.com;
 
-#### HTTPS `-S`
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
 
-If set, fiche returns url with https prefix instead of http
-
-```
-go-fiche -S
-```
-
-__Output url with this parameter__: `https://localhost/xxxx`,
-where x is a randomized character
-
--------------------------------------------------------------------------------
-
-#### Buffer size `-B`
-
-This parameter defines size of the buffer used for getting data from the user.
-Maximum size (in bytes) of all input files is defined by this value.
-
-```
-go-fiche -B 2048
-```
-
-__Default value:__ 32768
-
--------------------------------------------------------------------------------
-
-#### Log file `-l`
-
-```
-go-fiche -l /home/www/fiche-log.txt
+    # 静态文件服务
+    location / {
+        root /path/to/code;
+        default_type text/plain;
+        charset utf-8;
+        
+        # 禁止目录列表
+        autoindex off;
+        
+        # 缓存设置
+        expires 1d;
+        add_header Cache-Control "public, immutable";
+    }
+}
 ```
 
-__Default value:__ not set
+### 带语法高亮（可选）
 
-__WARNING:__ this file has to be user-writable
+如果需要语法高亮，可以使用 [highlight.js](https://highlightjs.org/) 或其他方案。
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name paste.example.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    root /path/to/code;
+
+    location / {
+        default_type text/plain;
+        charset utf-8;
+        autoindex off;
+    }
+
+    # 可选：添加 raw 路径返回纯文本
+    location /raw/ {
+        alias /path/to/code/;
+        default_type text/plain;
+        charset utf-8;
+    }
+}
+```
+
+### Systemd 服务
+
+创建 `/etc/systemd/system/go-fiche.service`：
+
+```ini
+[Unit]
+Description=Go-Fiche Pastebin Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+ExecStart=/usr/local/bin/go-fiche -d paste.example.com -p 9999 -o /var/www/paste -S
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+启动服务：
+
+```bash
+sudo systemctl enable --now go-fiche
+```
+
+## License
+
+MIT License
