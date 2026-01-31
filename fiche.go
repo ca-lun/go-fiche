@@ -13,11 +13,12 @@ import (
 )
 
 func ficheInit() {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", viper.Get("port")))
+	port := viper.GetInt("port")
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		log.Fatalf("Could not bind to port: %d!", viper.Get("port"))
+		log.Fatalf("Could not bind to port: %d!", port)
 	}
-	log.Printf("Server started listening on port: %d.", viper.Get("port"))
+	log.Printf("Server started listening on port: %d.", port)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
